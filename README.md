@@ -5,8 +5,8 @@ A reusable on-chain arbitration contract for [GenLayer](https://genlayer.com). T
 One deployment serves any number of agreements and disputes. There is no need to redeploy per case.
 
 - **Contract (GenLayer Studio):** [`0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6`](https://explorer-studio.genlayer.com/address/0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6)
-- **Frontend:** `index.html`, a single static file that talks to the deployed contract (GitHub Pages ready)
-- **Live demo:** `https://<your-username>.github.io/<your-repo>/`
+- **Frontend:** [`docs/index.html`](docs/index.html), a single static file that talks to the deployed contract
+- **Live demo:** https://isnoop4.github.io/Agent-dispute-court/
 
 ## How it works
 
@@ -77,7 +77,7 @@ The frontend is one static file with no build step. It loads [`genlayer-js`](htt
 
 ```bash
 # any static server works, for example:
-python3 -m http.server 8000
+cd docs && python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
@@ -89,10 +89,10 @@ To test a full case you need two addresses: act as party A, copy party B's addre
 
 ## Deploy to GitHub Pages
 
-1. Put `index.html` and this `README.md` in the repo root (or `/docs`).
+1. Keep the frontend at `docs/index.html`.
 2. In the repo go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select your branch and the `/ (root)` folder (or `/docs`), then save.
-4. After a minute the site is live at `https://<your-username>.github.io/<your-repo>/`.
+3. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and the `/docs` folder, then save.
+4. After a minute the site is live at https://isnoop4.github.io/Agent-dispute-court/.
 
 ## Test the contract
 
@@ -111,7 +111,8 @@ In GenLayer Studio, with two accounts:
 .
 ├── contracts/
 │   └── AgentDisputeCourtV4.py   # the Intelligent Contract
-├── index.html                   # frontend (GitHub Pages)
+├── docs/
+│   └── index.html               # frontend (served by GitHub Pages)
 └── README.md
 ```
 
