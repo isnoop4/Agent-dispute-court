@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Dispute Court</title>
+<meta name="description" content="Two parties agree on terms. If they disagree, GenLayer validators read the evidence and rule on-chain.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,800;1,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EDF0F4;
+    --sheet: #F8F9FB;
+    --ink: #16223A;
+    --muted: #5A667C;
+    --rule: #C2CAD6;
+    --oxblood: #9B2C3A;
+    --amber: #96640F;
+    --slate: #4B5568;
+    --ok: #1F6B4A;
+    --focus: #2B5FD9;
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101826;
+      --sheet: #172134;
+      --ink: #E7ECF4;
+      --muted: #97A3B8;
+      --rule: #2E3B54;
+      --oxblood: #E0707D;
+      --amber: #E0B24F;
+      --slate: #AAB4C6;
+      --ok: #62C597;
+      --focus: #7FA2FF;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 var(--sans);
+    -webkit-text-size-adjust: 100%;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* Masthead */
+  header { padding: 56px 0 28px; border-bottom: 3px double var(--ink); }
+  h1 {
+    font: 800 clamp(2.4rem, 8vw, 4.2rem)/1 var(--serif);
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+  }
+  .lede { font: 400 1.2rem/1.5 var(--serif); max-width: 34em; margin: 0 0 20px; color: var(--ink); }
+  .addr {
+    display: inline-block; font-size: .88rem; color: var(--muted);
+    word-break: break-all; text-decoration: underline; text-underline-offset: 3px;
+  }
+
+  section { padding: 34px 0 6px; }
+  h2 { font: 600 1.55rem/1.2 var(--serif); margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 18px; max-width: 40em; }
+
+  /* Controls */
+  label { display: block; font-weight: 600; font-size: .92rem; margin: 14px 0 5px; }
+  input, textarea {
+    width: 100%; font: inherit; color: var(--ink);
+    background: var(--sheet); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 10px 12px;
+  }
+  textarea { min-height: 92px; resize: vertical; }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1 1 160px; }
+  .row > button { flex: 0 0 auto; }
+  button {
+    font: 600 .95rem var(--sans); cursor: pointer;
+    background: var(--ink); color: var(--paper);
+    border: 1px solid var(--ink); border-radius: 3px;
+    padding: 10px 18px; min-height: 44px;
+  }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+  button:hover:not(:disabled) { filter: brightness(1.15); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Account strip */
+  .account { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .account .who { flex: 1 1 260px; min-width: 0; }
+  .account .who b { display: block; font-size: .8rem; color: var(--muted); font-weight: 500; }
+  .account .who span { word-break: break-all; font-size: .95rem; }
+  .account .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .counts { margin: 14px 0 0; color: var(--muted); font-size: .92rem; }
+
+  /* Docket */
+  .docket {
+    position: relative;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-left: 6px solid var(--ink);
+    padding: 22px 22px 24px;
+    margin-top: 22px;
+    overflow: hidden;
+  }
+  .docket[hidden] { display: none; }
+  .docket h3 { font: 600 1.35rem/1.2 var(--serif); margin: 0 0 4px; }
+  .docket .meta { color: var(--muted); font-size: .9rem; margin: 0 0 18px; }
+  .track { display: flex; flex-wrap: wrap; gap: 6px 22px; list-style: none; padding: 0; margin: 0 0 20px; font-size: .92rem; }
+  .track li { color: var(--muted); padding-left: 20px; position: relative; }
+  .track li::before { content: ""; position: absolute; left: 0; top: .42em; width: 11px; height: 11px; border: 2px solid var(--rule); border-radius: 50%; }
+  .track li.done { color: var(--ink); }
+  .track li.done::before { background: var(--ink); border-color: var(--ink); }
+  .track li.now { color: var(--ink); font-weight: 600; }
+  .track li.now::before { border-color: var(--ink); background: var(--paper); }
+  dl { margin: 0; }
+  dt { font-weight: 600; font-size: .9rem; margin-top: 16px; }
+  dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+  dd.statement { font: 400 1.05rem/1.55 var(--serif); }
+  dd small { color: var(--muted); }
+  .you { font-size: .8rem; font-weight: 600; color: var(--ok); margin-left: 6px; }
+
+  .ruling { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rule); }
+  .ruling h4 { font: 600 1.1rem var(--serif); margin: 0 0 8px; }
+  .stamp {
+    display: inline-block;
+    font: 800 clamp(1.3rem, 5vw, 2rem)/1.1 var(--serif);
+    letter-spacing: .02em;
+    padding: 8px 16px;
+    border: 4px double currentColor;
+    border-radius: 4px;
+    transform: rotate(-3deg);
+    margin: 6px 0 14px;
+  }
+  .stamp.claimant, .stamp.respondent { color: var(--oxblood); }
+  .stamp.split { color: var(--amber); }
+  .stamp.insufficient { color: var(--slate); }
+  .stamp.pending { color: var(--muted); border-style: dashed; }
+  .reason { font: 400 1.05rem/1.6 var(--serif); max-width: 40em; margin: 0 0 8px; }
+
+  /* Steps */
+  .steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  .step { border-top: 1px solid var(--rule); padding: 22px 0 26px; counter-increment: step; }
+  .step:last-child { border-bottom: 1px solid var(--rule); }
+  .step h3 { font: 600 1.2rem/1.3 var(--serif); margin: 0 0 4px; }
+  .step h3::before { content: counter(step) ". "; color: var(--muted); }
+  .step p { margin: 0 0 4px; color: var(--muted); max-width: 40em; }
+  .step button { margin-top: 16px; }
+
+  /* Status line */
+  #status {
+    position: sticky; bottom: 0; margin-top: 30px;
+    background: var(--ink); color: var(--paper);
+    padding: 12px 20px; font-size: .94rem; display: none;
+  }
+  #status.show { display: block; }
+  #status.error { background: var(--oxblood); color: #fff; }
+  #status.good { background: var(--ok); color: #fff; }
+  @media (prefers-color-scheme: dark) { #status.good, #status.error { color: #0d1420; } }
+
+  footer { padding: 36px 0 60px; color: var(--muted); font-size: .88rem; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stamp.fresh { animation: press .35s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes press { from { transform: rotate(-3deg) scale(1.6); opacity: 0; } to { transform: rotate(-3deg) scale(1); opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Agent Dispute Court</h1>
+    <p class="lede">Two parties agree on terms. If they disagree, GenLayer validators read the evidence and record a ruling on-chain.</p>
+    <a class="addr" id="contractLink" href="#" target="_blank" rel="noopener"></a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section aria-labelledby="h-account">
+    <h2 id="h-account">Your account</h2>
+    <p class="sub">Each side of an agreement acts from its own address. Use a local account for quick tests, or connect a browser wallet.</p>
+    <div class="account">
+      <div class="who"><b>Acting as</b><span id="acctAddr">Starting…</span></div>
+      <div class="btns">
+        <button class="ghost" id="btnCopy" type="button">Copy address</button>
+        <button class="ghost" id="btnNew" type="button">Switch to a new local account</button>
+        <button class="ghost" id="btnWallet" type="button">Connect browser wallet</button>
+      </div>
+    </div>
+    <p class="counts" id="counts">Loading court records…</p>
+  </section>
+
+  <section aria-labelledby="h-case">
+    <h2 id="h-case">Look up a case</h2>
+    <p class="sub">Enter a dispute id to read its file, or an agreement id to read its terms.</p>
+    <div class="row">
+      <div>
+        <label for="lookDispute">Dispute id</label>
+        <input id="lookDispute" type="number" min="0" value="0" inputmode="numeric">
+      </div>
+      <button id="btnDispute" type="button">Open dispute</button>
+      <div>
+        <label for="lookAgreement">Agreement id</label>
+        <input id="lookAgreement" type="number" min="0" value="0" inputmode="numeric">
+      </div>
+      <button id="btnAgreement" type="button" class="ghost">Open agreement</button>
+    </div>
+    <article class="docket" id="docket" hidden aria-live="polite"></article>
+  </section>
+
+  <section aria-labelledby="h-steps">
+    <h2 id="h-steps">Run a case</h2>
+    <p class="sub">A case moves through four actions. The second party must act from a different address than the first.</p>
+    <ol class="steps">
+
+      <li class="step">
+        <h3>Create an agreement</h3>
+        <p>Written by party A. Party B is the other side.</p>
+        <label for="cPartyB">Party B address</label>
+        <input id="cPartyB" placeholder="0x…" autocomplete="off" spellcheck="false">
+        <label for="cTerms">Terms</label>
+        <textarea id="cTerms" placeholder="Seller must deliver 100 units within 7 days of payment. Delivery is proven by a tracking page showing Delivered."></textarea>
+        <button id="btnCreate" type="button">Create agreement</button>
+      </li>
+
+      <li class="step">
+        <h3>File a dispute</h3>
+        <p>Either party can file. The evidence link is optional and is read when the ruling is requested.</p>
+        <label for="fAgreement">Agreement id</label>
+        <input id="fAgreement" type="number" min="0" value="0" inputmode="numeric">
+        <label for="fClaim">Claim</label>
+        <textarea id="fClaim" placeholder="Seller did not deliver within 7 days. I request a full refund."></textarea>
+        <label for="fUrl">Evidence link (optional)</label>
+        <input id="fUrl" type="url" placeholder="https://…" autocomplete="off">
+        <button id="btnFile" type="button">File dispute</button>
+      </li>
+
+      <li class="step">
+        <h3>Respond to a dispute</h3>
+        <p>Only the other party, not the one who filed, can respond.</p>
+        <label for="rDispute">Dispute id</label>
+        <input id="rDispute" type="number" min="0" value="0" inputmode="numeric">
+        <label for="rText">Response</label>
+        <textarea id="rText" placeholder="Goods were shipped on day 3 and the tracking page shows Delivered on day 6."></textarea>
+        <label for="rUrl">Evidence link (optional)</label>
+        <input id="rUrl" type="url" placeholder="https://…" autocomplete="off">
+        <button id="btnRespond" type="button">Submit response</button>
+      </li>
+
+      <li class="step">
+        <h3>Request a ruling</h3>
+        <p>Either party can request it once a response is in. Validators fetch the evidence and vote, which can take a minute or two.</p>
+        <label for="xDispute">Dispute id</label>
+        <input id="xDispute" type="number" min="0" value="0" inputmode="numeric">
+        <button id="btnResolve" type="button">Request ruling</button>
+      </li>
+    </ol>
+  </section>
+
+</main>
+
+<div id="status" role="status" aria-live="polite"></div>
+
+<footer>
+  <div class="wrap">
+    Runs on GenLayer Studio network. Rulings are recorded by validator consensus and are not legal advice.
+  </div>
+</footer>
+
+<script type="module">
+import { createClient, createAccount, generatePrivateKey } from "https://esm.sh/genlayer-js";
+import { studionet } from "https://esm.sh/genlayer-js/chains";
+
+const CONTRACT = "0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6";
+const EXPLORER = "https://explorer-studio.genlayer.com/address/" + CONTRACT;
+const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+const STAGES = [
+  ["AWAITING_RESPONSE", "Waiting for response"],
+  ["READY_FOR_RULING", "Ready for ruling"],
+  ["RESOLVED", "Ruled"],
+];
+
+const $ = (id) => document.getElementById(id);
+let client = null;
+let me = "";
+
+const link = $("contractLink");
+link.href = EXPLORER;
+link.textContent = "Contract " + CONTRACT;
+
+/* ---------- helpers ---------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const short = (a) => (a && a.length > 14 ? a.slice(0, 8) + "…" + a.slice(-6) : a);
+const same = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+
+function norm(v) {
+  if (v instanceof Map) { const o = {}; for (const [k, x] of v) o[k] = norm(x); return o; }
+  if (typeof v === "bigint") return Number(v);
+  if (Array.isArray(v)) return v.map(norm);
+  if (v && typeof v === "object") { const o = {}; for (const k in v) o[k] = norm(v[k]); return o; }
+  return v;
+}
+
+let statusTimer;
+function say(msg, kind = "") {
+  const el = $("status");
+  el.className = "show " + kind;
+  el.textContent = msg;
+  clearTimeout(statusTimer);
+  if (kind) statusTimer = setTimeout(() => (el.className = ""), 9000);
+}
+
+function friendly(err) {
+  const m = String(err?.message || err);
+  if (/user rejected|denied/i.test(m)) return "The request was cancelled in your wallet.";
+  return m.length > 220 ? m.slice(0, 220) + "…" : m;
+}
+
+/* ---------- account ---------- */
+function showAccount(label) {
+  $("acctAddr").textContent = me ? me + "  (" + label + ")" : "Not connected";
+}
+
+function useLocal(fresh = false) {
+  let pk = null;
+  try { pk = fresh ? null : localStorage.getItem("adc_pk"); } catch (_) {}
+  if (!pk) {
+    pk = generatePrivateKey();
+    try { localStorage.setItem("adc_pk", pk); } catch (_) {}
+  }
+  const account = createAccount(pk);
+  client = createClient({ chain: studionet, account });
+  me = account.address;
+  showAccount("local account, stored in this browser");
+}
+
+async function useWallet() {
+  if (!window.ethereum) return say("No browser wallet found. Install one, or keep using the local account.", "error");
+  try {
+    const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    client = createClient({ chain: studionet, account: addr });
+    if (client.connect) await client.connect("studionet");
+    me = addr;
+    showAccount("browser wallet");
+    say("Wallet connected.", "good");
+  } catch (e) { say(friendly(e), "error"); }
+}
+
+/* ---------- chain calls ---------- */
+async function read(fn, args = []) {
+  const out = await client.readContract({ address: CONTRACT, functionName: fn, args });
+  return norm(out);
+}
+
+async function send(label, fn, args) {
+  say(label + ": sending transaction…");
+  const hash = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n });
+  say(label + ": waiting for validators (" + short(hash) + ")…");
+  const receipt = await client.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 120, interval: 5000 });
+  const exec = receipt?.consensus_data?.leader_receipt?.[0]?.execution_result;
+  if (exec && exec !== "SUCCESS") {
+    throw new Error("The contract rejected this action. Check that the case is in the right stage and that you are acting from the right address.");
+  }
+  return receipt;
+}
+
+async function refreshCounts() {
+  try {
+    const c = await read("get_counts");
+    $("counts").textContent = c.agreements + " agreement" + (c.agreements === 1 ? "" : "s") + " and " + c.disputes + " dispute" + (c.disputes === 1 ? "" : "s") + " on file.";
+    return c;
+  } catch (e) {
+    $("counts").textContent = "Could not load court records: " + friendly(e);
+    return null;
+  }
+}
+
+/* ---------- docket ---------- */
+function stampFor(v) {
+  const verdict = v?.verdict || "PENDING";
+  const map = {
+    CLAIMANT_FAVORED: ["For the claimant", "claimant"],
+    RESPONDENT_FAVORED: ["For the respondent", "respondent"],
+    SPLIT: ["Split ruling", "split"],
+    INSUFFICIENT_EVIDENCE: ["Not enough evidence", "insufficient"],
+    PENDING: ["No ruling yet", "pending"],
+  };
+  return map[verdict] || [verdict, "pending"];
+}
+
+function party(addr) {
+  return esc(addr) + (same(addr, me) ? '<span class="you">you</span>' : "");
+}
+
+async function openDispute() {
+  const id = parseInt($("lookDispute").value, 10);
+  if (Number.isNaN(id) || id < 0) return say("Enter a dispute id of 0 or higher.", "error");
+  const box = $("docket");
+  try {
+    say("Reading dispute " + id + "…");
+    const d = await read("get_dispute", [BigInt(id)]);
+    const agr = await read("get_agreement", [BigInt(d.agreement_id)]);
+    let winner = "";
+    if (d.status === "RESOLVED") winner = await read("get_winner", [BigInt(id)]);
+
+    const idx = STAGES.findIndex((s) => s[0] === d.status);
+    const track = STAGES.map((s, i) => `<li class="${i < idx ? "done" : i === idx ? (d.status === "RESOLVED" ? "done now" : "now") : ""}">${s[1]}</li>`).join("");
+    const [stampText, stampClass] = stampFor(d.verdict);
+    const ev = (u) => (u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>` : "<small>None provided</small>");
+
+    box.innerHTML = `
+      <h3>Dispute ${id}</h3>
+      <p class="meta">Under agreement ${d.agreement_id}</p>
+      <ol class="track">${track}</ol>
+      <dl>
+        <dt>Agreement terms</dt><dd class="statement">${esc(agr.terms)}</dd>
+        <dt>Claimant</dt><dd>${party(d.claimant)}</dd>
+        <dt>Claim</dt><dd class="statement">${esc(d.claim)}</dd>
+        <dt>Claimant evidence</dt><dd>${ev(d.claim_evidence_url)}</dd>
+        <dt>Respondent</dt><dd>${party(d.respondent)}</dd>
+        <dt>Response</dt><dd class="statement">${d.response ? esc(d.response) : "<small>No response yet</small>"}</dd>
+        <dt>Respondent evidence</dt><dd>${ev(d.response_evidence_url)}</dd>
+      </dl>
+      <div class="ruling">
+        <h4>Ruling</h4>
+        <div class="stamp ${stampClass} fresh">${esc(stampText)}</div>
+        ${d.verdict?.reason ? `<p class="reason">${esc(d.verdict.reason)}</p>` : ""}
+        ${d.verdict?.confidence ? `<p class="meta">Confidence: ${esc(d.verdict.confidence.toLowerCase())}</p>` : ""}
+        ${winner && ADDR_RE.test(winner) ? `<p class="meta">Winning address: ${party(winner)}</p>` : ""}
+      </div>`;
+    box.hidden = false;
+    $("status").className = "";
+  } catch (e) {
+    say("Could not open dispute " + id + ". " + friendly(e), "error");
+  }
+}
+
+async function openAgreement() {
+  const id = parseInt($("lookAgreement").value, 10);
+  if (Number.isNaN(id) || id < 0) return say("Enter an agreement id of 0 or higher.", "error");
+  const box = $("docket");
+  try {
+    say("Reading agreement " + id + "…");
+    const a = await read("get_agreement", [BigInt(id)]);
+    box.innerHTML = `
+      <h3>Agreement ${id}</h3>
+      <p class="meta">${a.dispute_count} dispute${a.dispute_count === 1 ? "" : "s"} filed</p>
+      <dl>
+        <dt>Party A</dt><dd>${party(a.party_a)}</dd>
+        <dt>Party B</dt><dd>${party(a.party_b)}</dd>
+        <dt>Terms</dt><dd class="statement">${esc(a.terms)}</dd>
+      </dl>`;
+    box.hidden = false;
+    $("status").className = "";
+  } catch (e) {
+    say("Could not open agreement " + id + ". " + friendly(e), "error");
+  }
+}
+
+/* ---------- actions ---------- */
+async function guarded(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { say(friendly(e), "error"); } finally { btn.disabled = false; }
+}
+
+const intOf = (id, name) => {
+  const n = parseInt($(id).value, 10);
+  if (Number.isNaN(n) || n < 0) throw new Error("Enter a valid " + name + ".");
+  return BigInt(n);
+};
+const textOf = (id, name) => {
+  const v = $(id).value.trim();
+  if (!v) throw new Error(name + " cannot be empty.");
+  return v;
+};
+
+$("btnCreate").onclick = (e) => guarded(e.currentTarget, async () => {
+  const b = textOf("cPartyB", "Party B address");
+  if (!ADDR_RE.test(b)) throw new Error("Party B must be a full address starting with 0x.");
+  if (same(b, me)) throw new Error("Party B must be a different address from yours.");
+  await send("Create agreement", "create_agreement", [b, textOf("cTerms", "Terms")]);
+  const c = await refreshCounts();
+  const id = c ? c.agreements - 1 : 0;
+  $("fAgreement").value = id; $("lookAgreement").value = id;
+  say("Agreement created. Its id is " + id + ".", "good");
+  openAgreement();
+});
+
+$("btnFile").onclick = (e) => guarded(e.currentTarget, async () => {
+  await send("File dispute", "file_dispute", [intOf("fAgreement", "agreement id"), textOf("fClaim", "Claim"), $("fUrl").value.trim()]);
+  const c = await refreshCounts();
+  const id = c ? c.disputes - 1 : 0;
+  $("rDispute").value = id; $("xDispute").value = id; $("lookDispute").value = id;
+  say("Dispute filed. Its id is " + id + ".", "good");
+  openDispute();
+});
+
+$("btnRespond").onclick = (e) => guarded(e.currentTarget, async () => {
+  const id = intOf("rDispute", "dispute id");
+  await send("Respond", "submit_response", [id, textOf("rText", "Response"), $("rUrl").value.trim()]);
+  $("xDispute").value = id; $("lookDispute").value = id;
+  say("Response submitted.", "good");
+  openDispute();
+});
+
+$("btnResolve").onclick = (e) => guarded(e.currentTarget, async () => {
+  const id = intOf("xDispute", "dispute id");
+  await send("Ruling", "resolve_dispute", [id]);
+  $("lookDispute").value = id;
+  say("Ruling recorded.", "good");
+  openDispute();
+});
+
+$("btnDispute").onclick = openDispute;
+$("btnAgreement").onclick = openAgreement;
+$("btnWallet").onclick = useWallet;
+$("btnNew").onclick = () => { useLocal(true); say("Switched to a new local account. Fund or reuse it as needed.", "good"); };
+$("btnCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText(me); say("Address copied.", "good"); }
+  catch (_) { say("Copy failed. Select the address and copy it manually.", "error"); }
+};
+
+/* ---------- start ---------- */
+try {
+  useLocal();
+  refreshCounts();
+} catch (e) {
+  $("acctAddr").textContent = "Could not start";
+  say("Could not load the GenLayer library. Check your connection and reload. " + friendly(e), "error");
+}
+</script>
+</body>
+</html>
