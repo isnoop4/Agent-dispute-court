@@ -426,7 +426,7 @@ async function openDispute() {
     if (d.status === "RESOLVED") winner = await read("get_winner", [BigInt(id)]);
 
     const idx = STAGES.findIndex((s) => s[0] === d.status);
-    const track = STAGES.map((s, i) => `<li class="${i < idx ? "done" : i === idx ? (d.status === "RESOLVED" ? "done now" : "now") : ""}">${s[1]}</li>`).join("");
+    const track = STAGES.map((s, i) => `<li class="${i < idx ? "done" : i === idx ? (d.status === "RESOLVED" ? "done" : "now") : ""}">${s[1]}</li>`).join("");
     const [stampText, stampClass] = stampFor(d.verdict);
     const ev = (u) => (u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>` : "<small>None provided</small>");
 
