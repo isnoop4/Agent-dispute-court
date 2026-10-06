@@ -343,9 +343,25 @@ function useLocal(fresh = false) {
 async function useWallet() {
   if (!window.ethereum) return say("No browser wallet found. Install one, or keep using the local account.", "error");
   try {
-    const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    const eth = window.ethereum;
+    const [addr] = await eth.request({ method: "eth_requestAccounts" });
+    // Switch (or add) the GenLayer Studio network directly. This avoids
+    // client.connect(), which needs MetaMask Snaps and fails on Rabby.
+    const chainId = "0x" + Number(studionet.id).toString(16);
+    try {
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+    } catch (_) {
+      await eth.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId,
+          chainName: studionet.name || "GenLayer Studio",
+          nativeCurrency: studionet.nativeCurrency || { name: "GEN", symbol: "GEN", decimals: 18 },
+          rpcUrls: studionet.rpcUrls?.default?.http || ["https://studio.genlayer.com/api"],
+        }],
+      });
+    }
     client = createClient({ chain: studionet, account: addr });
-    if (client.connect) await client.connect("studionet");
     me = addr;
     showAccount("browser wallet");
     say("Wallet connected.", "good");
