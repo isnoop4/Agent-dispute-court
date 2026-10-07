@@ -79,5 +79,5 @@ Also available on-chain through `get_trust_model()`.
 
 ## Files
 
-- `contracts/AgentDisputeCourtV5.py`: the Intelligent Contract
+- `contracts/agent_dispute_court.py`: the Intelligent Contract
 - `docs/index.html`: GitHub Pages frontend
