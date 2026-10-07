@@ -141,7 +141,7 @@
     color: var(--ink-2);
     margin: 16px 0 6px;
   }
-  input, textarea {
+  input, textarea, select {
     width: 100%; font: inherit; color: var(--ink);
     background: var(--sheet);
     border: 1px solid var(--rule);
@@ -150,14 +150,15 @@
     box-shadow: var(--shadow-sm);
     transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
   }
-  input:hover, textarea:hover { border-color: var(--rule-strong); }
-  input:focus, textarea:focus {
+  input:hover, textarea:hover, select:hover { border-color: var(--rule-strong); }
+  input:focus, textarea:focus, select:focus {
     outline: none;
     border-color: var(--focus);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent);
   }
   textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
   input::placeholder, textarea::placeholder { color: var(--muted); opacity: .75; }
+  .hint { color: var(--muted); font-size: .85rem; margin: 6px 0 0; }
 
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
   .row > * { flex: 1 1 180px; }
@@ -301,7 +302,7 @@
     word-break: break-all;
   }
 
-  /* NEW: address link with external icon */
+  /* address link with external icon */
   .addr-link {
     color: var(--ink);
     text-decoration: none;
@@ -329,6 +330,26 @@
     background: color-mix(in srgb, var(--ok) 12%, transparent);
     border-radius: 999px;
     vertical-align: middle;
+  }
+
+  /* NEW: evidence report, log, badges */
+  .evlist, .loglist { list-style: none; padding: 0; margin: 6px 0 0; font-size: .92rem; }
+  .evlist li, .loglist li { margin: 0 0 8px; overflow-wrap: anywhere; }
+  .loglist li { color: var(--ink-2); }
+  .loglist small { color: var(--muted); font-style: normal; margin-left: 6px; }
+  .badge {
+    display: inline-block;
+    font-size: .66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; margin-right: 6px; vertical-align: middle;
+  }
+  .badge.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  .badge.bad { color: var(--oxblood); background: color-mix(in srgb, var(--oxblood) 12%, transparent); }
+  .notice {
+    margin: 14px 0 0; padding: 10px 14px;
+    font-size: .92rem; color: var(--ink-2);
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
 
   .ruling {
@@ -403,6 +424,8 @@
     font-size: .95rem;
   }
   .step button { margin-top: 20px; }
+  .step .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .step .actions button { margin-top: 0; }
 
   @media (max-width: 560px) {
     .step { padding: 70px 20px 24px; }
@@ -429,7 +452,7 @@
   #status.good { background: var(--ok); color: #fff; }
   @media (prefers-color-scheme: dark) { #status.good, #status.error { color: #0d1420; } }
 
-  /* NEW: tx link inside status bar */
+  /* tx link inside status bar */
   #status a.tx {
     color: inherit;
     font-weight: 600;
@@ -503,7 +526,7 @@
 
   <section aria-labelledby="h-steps">
     <h2 id="h-steps">Run a case</h2>
-    <p class="sub">A case moves through four actions. The second party must act from a different address than the first.</p>
+    <p class="sub">A case moves through filing, response and ruling. Safeguards let a claimant withdraw or expire the response window, and either party can appeal once. The second party must act from a different address than the first.</p>
     <ol class="steps">
 
       <li class="step">
@@ -513,18 +536,30 @@
         <input id="cPartyB" placeholder="0x…" autocomplete="off" spellcheck="false">
         <label for="cTerms">Terms</label>
         <textarea id="cTerms" placeholder="Seller must deliver 100 units within 7 days of payment. Delivery is proven by a tracking page showing Delivered."></textarea>
+        <label for="cCriteria">Ruling criteria (optional)</label>
+        <textarea id="cCriteria" placeholder="Delivery counts as late after 7 days. A tracking page showing Delivered is conclusive proof of delivery."></textarea>
+        <p class="hint">Agreement-specific rules the arbiter must follow when ruling.</p>
+        <label for="cWindow">Response window</label>
+        <select id="cWindow">
+          <option value="3600">1 hour (for quick tests)</option>
+          <option value="86400">1 day</option>
+          <option value="0" selected>7 days (default)</option>
+          <option value="2592000">30 days</option>
+        </select>
+        <p class="hint">How long the respondent has to answer before the claimant can move the case to ruling.</p>
         <button id="btnCreate" type="button">Create agreement</button>
       </li>
 
       <li class="step">
         <h3>File a dispute</h3>
-        <p>Either party can file. The evidence link is optional and is read when the ruling is requested.</p>
+        <p>Either party can file. Evidence links are optional, up to 3 https links, and are read when the ruling is requested.</p>
         <label for="fAgreement">Agreement id</label>
         <input id="fAgreement" type="number" min="0" value="0" inputmode="numeric">
         <label for="fClaim">Claim</label>
         <textarea id="fClaim" placeholder="Seller did not deliver within 7 days. I request a full refund."></textarea>
-        <label for="fUrl">Evidence link (optional)</label>
-        <input id="fUrl" type="url" placeholder="https://…" autocomplete="off">
+        <label for="fUrl">Evidence links (optional)</label>
+        <input id="fUrl" placeholder="https://…  https://…" autocomplete="off" spellcheck="false">
+        <p class="hint">Separate multiple links with a space or comma.</p>
         <button id="btnFile" type="button">File dispute</button>
       </li>
 
@@ -535,17 +570,32 @@
         <input id="rDispute" type="number" min="0" value="0" inputmode="numeric">
         <label for="rText">Response</label>
         <textarea id="rText" placeholder="Goods were shipped on day 3 and the tracking page shows Delivered on day 6."></textarea>
-        <label for="rUrl">Evidence link (optional)</label>
-        <input id="rUrl" type="url" placeholder="https://…" autocomplete="off">
+        <label for="rUrl">Evidence links (optional)</label>
+        <input id="rUrl" placeholder="https://…  https://…" autocomplete="off" spellcheck="false">
+        <p class="hint">Up to 3 https links, separated by a space or comma.</p>
         <button id="btnRespond" type="button">Submit response</button>
       </li>
 
       <li class="step">
         <h3>Request a ruling</h3>
-        <p>Either party can request it once a response is in. Validators fetch the evidence and vote, which can take a minute or two.</p>
+        <p>Either party can request it once a response is in, or after an appeal. Validators fetch the evidence and vote, which can take a minute or two. A ruling after an appeal is final.</p>
         <label for="xDispute">Dispute id</label>
         <input id="xDispute" type="number" min="0" value="0" inputmode="numeric">
         <button id="btnResolve" type="button">Request ruling</button>
+      </li>
+
+      <li class="step">
+        <h3>Withdraw, expire, or appeal</h3>
+        <p>The claimant can withdraw a dispute before it is answered, or expire the response window once it has passed so the case can be ruled without a response. Either party can appeal a ruling once, then request the ruling again for the final decision.</p>
+        <label for="mDispute">Dispute id</label>
+        <input id="mDispute" type="number" min="0" value="0" inputmode="numeric">
+        <label for="mReason">Appeal reason (appeals only)</label>
+        <textarea id="mReason" placeholder="Please re-check the delivery timeline against the tracking page."></textarea>
+        <div class="actions">
+          <button id="btnWithdraw" type="button" class="ghost">Withdraw dispute</button>
+          <button id="btnExpire" type="button" class="ghost">Expire response window</button>
+          <button id="btnAppeal" type="button">Appeal ruling</button>
+        </div>
       </li>
     </ol>
   </section>
@@ -564,17 +614,25 @@
 import { createClient, createAccount, generatePrivateKey } from "https://esm.sh/genlayer-js";
 import { studionet } from "https://esm.sh/genlayer-js/chains";
 
-const CONTRACT = "0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6";
+const CONTRACT = "0xf23a7B406C7d3d6E3Ed04988F86B83bb583158a4";
 const EXPLORER = "https://explorer-studio.genlayer.com/address/" + CONTRACT;
-/* NEW: base explorer URLs */
 const TX_BASE = "https://explorer-studio.genlayer.com/tx/";
 const ADDR_BASE = "https://explorer-studio.genlayer.com/address/";
 const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+const MAX_URLS = 3;
 const STAGES = [
   ["AWAITING_RESPONSE", "Waiting for response"],
   ["READY_FOR_RULING", "Ready for ruling"],
   ["RESOLVED", "Ruled"],
+  ["FINAL", "Final after appeal"],
 ];
+const LOG_LABELS = {
+  FILED: "Dispute filed",
+  RESPONDED: "Respondent answered",
+  WITHDRAWN: "Withdrawn by claimant",
+  RESPONSE_WINDOW_EXPIRED: "Response window expired",
+  APPEALED: "Ruling appealed",
+};
 
 const $ = (id) => document.getElementById(id);
 let client = null;
@@ -588,8 +646,6 @@ link.textContent = "Contract " + CONTRACT;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const short = (a) => (a && a.length > 14 ? a.slice(0, 8) + "…" + a.slice(-6) : a);
 const same = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
-
-/* NEW: helpers to build explorer links */
 const txUrl = (hash) => TX_BASE + hash;
 const addrUrl = (addr) => ADDR_BASE + addr;
 
@@ -601,8 +657,15 @@ function norm(v) {
   return v;
 }
 
+function fmtWindow(s) {
+  if (!s) return "";
+  if (s % 86400 === 0) { const d = s / 86400; return d + " day" + (d === 1 ? "" : "s"); }
+  if (s % 3600 === 0) { const h = s / 3600; return h + " hour" + (h === 1 ? "" : "s"); }
+  const m = Math.round(s / 60); return m + " minute" + (m === 1 ? "" : "s");
+}
+
 let statusTimer;
-/* NEW: say() now supports an optional HTML string via 3rd argument */
+/* say() supports an optional HTML string via 3rd argument */
 function say(msg, kind = "", html = null) {
   const el = $("status");
   el.className = "show " + kind;
@@ -668,12 +731,11 @@ async function read(fn, args = []) {
   return norm(out);
 }
 
-/* NEW: return receipt so caller can access hash / show tx link */
 async function send(label, fn, args) {
   say(label + ": sending transaction…");
   const hash = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n });
-  say(label + ": waiting for validators…", "", 
-    `${esc(label)}: waiting for validators 
+  say(label + ": waiting for validators…", "",
+    `${esc(label)}: waiting for validators
      <a class="tx" href="${txUrl(hash)}" target="_blank" rel="noopener">view tx ${esc(short(hash))} ↗</a>`
   );
   const receipt = await client.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 120, interval: 5000 });
@@ -703,17 +765,43 @@ function stampFor(v) {
     RESPONDENT_FAVORED: ["For the respondent", "respondent"],
     SPLIT: ["Split ruling", "split"],
     INSUFFICIENT_EVIDENCE: ["Not enough evidence", "insufficient"],
+    WITHDRAWN: ["Withdrawn", "pending"],
     PENDING: ["No ruling yet", "pending"],
   };
   return map[verdict] || [verdict, "pending"];
 }
 
-/* NEW: party() now wraps address in explorer link */
 function party(addr) {
   if (!addr) return "";
   const safe = esc(addr);
   return `<a class="addr-link" href="${addrUrl(addr)}" target="_blank" rel="noopener" title="View on explorer">${safe}</a>` +
          (same(addr, me) ? '<span class="you">you</span>' : "");
+}
+
+const evLinks = (arr) =>
+  arr && arr.length
+    ? arr.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join("<br>")
+    : "<small>None provided</small>";
+
+function evidenceReport(rep) {
+  if (!rep || !rep.length) return "";
+  const items = rep.map((r) =>
+    `<li><span class="badge ${r.status === "OK" ? "ok" : "bad"}">${esc(r.status)}</span>${esc(r.side)}: ` +
+    `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>` +
+    (r.digest ? ` <small>digest ${esc(r.digest)}</small>` : "") + `</li>`
+  ).join("");
+  return `<dt>Evidence read by validators</dt><dd><ul class="evlist">${items}</ul></dd>`;
+}
+
+function logList(log) {
+  if (!log || !log.length) return "";
+  const items = log.map((e) => {
+    const name = String(e.event || "");
+    const label = name.startsWith("RULED:") ? "Ruling recorded: " + name.slice(6).replace(/_/g, " ").toLowerCase() : (LOG_LABELS[name] || name);
+    const when = e.t ? `<small>${esc(new Date(e.t * 1000).toLocaleString())}</small>` : "";
+    return `<li>${esc(label)}${when}</li>`;
+  }).join("");
+  return `<dt>Case history</dt><dd><ul class="loglist">${items}</ul></dd>`;
 }
 
 async function openDispute() {
@@ -725,12 +813,19 @@ async function openDispute() {
     const d = await read("get_dispute", [BigInt(id)]);
     const agr = await read("get_agreement", [BigInt(d.agreement_id)]);
     let winner = "";
-    if (d.status === "RESOLVED") winner = await read("get_winner", [BigInt(id)]);
+    if (d.status === "RESOLVED" || d.status === "FINAL") winner = await read("get_winner", [BigInt(id)]);
 
     const idx = STAGES.findIndex((s) => s[0] === d.status);
-    const track = STAGES.map((s, i) => `<li class="${i < idx ? "done" : i === idx ? (d.status === "RESOLVED" ? "done" : "now") : ""}">${s[1]}</li>`).join("");
+    const ruled = d.status === "RESOLVED" || d.status === "FINAL";
+    const track = d.status === "WITHDRAWN"
+      ? `<li class="done">Filed</li><li class="done">Withdrawn by claimant</li>`
+      : STAGES.map((s, i) => `<li class="${i < idx ? "done" : i === idx ? (ruled ? "done" : "now") : ""}">${s[1]}</li>`).join("");
     const [stampText, stampClass] = stampFor(d.verdict);
-    const ev = (u) => (u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>` : "<small>None provided</small>");
+
+    const notices = [];
+    if (d.flag === "NO_RESPONSE") notices.push("The respondent did not answer within the response window. Silence alone is not treated as proof.");
+    if (d.appeals > 0) notices.push("This dispute has been appealed." + (d.appeal_reason ? " Reason: " + esc(d.appeal_reason) : "") + (d.status === "FINAL" ? " The second ruling is final." : ""));
+    if (d.verdict?.downgraded) notices.push("The arbiter's confidence was low, so the ruling was downgraded to not enough evidence.");
 
     box.innerHTML = `
       <h3>Dispute ${id}</h3>
@@ -738,12 +833,15 @@ async function openDispute() {
       <ol class="track">${track}</ol>
       <dl>
         <dt>Agreement terms</dt><dd class="statement">${esc(agr.terms)}</dd>
+        ${agr.criteria ? `<dt>Ruling criteria</dt><dd class="statement">${esc(agr.criteria)}</dd>` : ""}
         <dt>Claimant</dt><dd>${party(d.claimant)}</dd>
         <dt>Claim</dt><dd class="statement">${esc(d.claim)}</dd>
-        <dt>Claimant evidence</dt><dd>${ev(d.claim_evidence_url)}</dd>
+        <dt>Claimant evidence</dt><dd>${evLinks(d.claim_evidence_urls)}</dd>
         <dt>Respondent</dt><dd>${party(d.respondent)}</dd>
         <dt>Response</dt><dd class="statement">${d.response ? esc(d.response) : "<small>No response yet</small>"}</dd>
-        <dt>Respondent evidence</dt><dd>${ev(d.response_evidence_url)}</dd>
+        <dt>Respondent evidence</dt><dd>${evLinks(d.response_evidence_urls)}</dd>
+        ${evidenceReport(d.verdict?.evidence)}
+        ${logList(d.log)}
       </dl>
       <div class="ruling">
         <h4>Ruling</h4>
@@ -751,6 +849,7 @@ async function openDispute() {
         ${d.verdict?.reason ? `<p class="reason">${esc(d.verdict.reason)}</p>` : ""}
         ${d.verdict?.confidence ? `<p class="meta">Confidence: ${esc(d.verdict.confidence.toLowerCase())}</p>` : ""}
         ${winner && ADDR_RE.test(winner) ? `<p class="meta">Winning address: ${party(winner)}</p>` : ""}
+        ${notices.map((n) => `<p class="notice">${n}</p>`).join("")}
       </div>`;
     box.hidden = false;
     $("status").className = "";
@@ -773,6 +872,8 @@ async function openAgreement() {
         <dt>Party A</dt><dd>${party(a.party_a)}</dd>
         <dt>Party B</dt><dd>${party(a.party_b)}</dd>
         <dt>Terms</dt><dd class="statement">${esc(a.terms)}</dd>
+        ${a.criteria ? `<dt>Ruling criteria</dt><dd class="statement">${esc(a.criteria)}</dd>` : ""}
+        <dt>Response window</dt><dd>${esc(fmtWindow(a.response_window_seconds))}</dd>
       </dl>`;
     box.hidden = false;
     $("status").className = "";
@@ -797,8 +898,17 @@ const textOf = (id, name) => {
   if (!v) throw new Error(name + " cannot be empty.");
   return v;
 };
+/* Evidence links: up to 3 https URLs, space or comma separated. Returns a single space separated string. */
+const urlsOf = (id) => {
+  const urls = [];
+  for (const u of $(id).value.replace(/,/g, " ").split(/\s+/).filter(Boolean)) {
+    if (!/^https:\/\//i.test(u)) throw new Error("Evidence links must start with https://");
+    if (!urls.includes(u)) urls.push(u);
+  }
+  if (urls.length > MAX_URLS) throw new Error("Use at most " + MAX_URLS + " evidence links.");
+  return urls.join(" ");
+};
 
-/* NEW: success messages now include a "view tx" link */
 function successHtml(message, hash) {
   return `${esc(message)} <a class="tx" href="${txUrl(hash)}" target="_blank" rel="noopener">view tx ${esc(short(hash))} ↗</a>`;
 }
@@ -807,7 +917,12 @@ $("btnCreate").onclick = (e) => guarded(e.currentTarget, async () => {
   const b = textOf("cPartyB", "Party B address");
   if (!ADDR_RE.test(b)) throw new Error("Party B must be a full address starting with 0x.");
   if (same(b, me)) throw new Error("Party B must be a different address from yours.");
-  const { hash } = await send("Create agreement", "create_agreement", [b, textOf("cTerms", "Terms")]);
+  const { hash } = await send("Create agreement", "create_agreement", [
+    b,
+    textOf("cTerms", "Terms"),
+    $("cCriteria").value.trim(),
+    BigInt($("cWindow").value),
+  ]);
   const c = await refreshCounts();
   const id = c ? c.agreements - 1 : 0;
   $("fAgreement").value = id; $("lookAgreement").value = id;
@@ -816,18 +931,19 @@ $("btnCreate").onclick = (e) => guarded(e.currentTarget, async () => {
 });
 
 $("btnFile").onclick = (e) => guarded(e.currentTarget, async () => {
-  const { hash } = await send("File dispute", "file_dispute", [intOf("fAgreement", "agreement id"), textOf("fClaim", "Claim"), $("fUrl").value.trim()]);
+  const args = [intOf("fAgreement", "agreement id"), textOf("fClaim", "Claim"), urlsOf("fUrl")];
+  const { hash } = await send("File dispute", "file_dispute", args);
   const c = await refreshCounts();
   const id = c ? c.disputes - 1 : 0;
-  $("rDispute").value = id; $("xDispute").value = id; $("lookDispute").value = id;
+  $("rDispute").value = id; $("xDispute").value = id; $("mDispute").value = id; $("lookDispute").value = id;
   say("", "good", successHtml("Dispute filed. Its id is " + id + ".", hash));
   openDispute();
 });
 
 $("btnRespond").onclick = (e) => guarded(e.currentTarget, async () => {
   const id = intOf("rDispute", "dispute id");
-  const { hash } = await send("Respond", "submit_response", [id, textOf("rText", "Response"), $("rUrl").value.trim()]);
-  $("xDispute").value = id; $("lookDispute").value = id;
+  const { hash } = await send("Respond", "submit_response", [id, textOf("rText", "Response"), urlsOf("rUrl")]);
+  $("xDispute").value = id; $("mDispute").value = id; $("lookDispute").value = id;
   say("", "good", successHtml("Response submitted.", hash));
   openDispute();
 });
@@ -835,8 +951,32 @@ $("btnRespond").onclick = (e) => guarded(e.currentTarget, async () => {
 $("btnResolve").onclick = (e) => guarded(e.currentTarget, async () => {
   const id = intOf("xDispute", "dispute id");
   const { hash } = await send("Ruling", "resolve_dispute", [id]);
-  $("lookDispute").value = id;
+  $("lookDispute").value = id; $("mDispute").value = id;
   say("", "good", successHtml("Ruling recorded.", hash));
+  openDispute();
+});
+
+$("btnWithdraw").onclick = (e) => guarded(e.currentTarget, async () => {
+  const id = intOf("mDispute", "dispute id");
+  const { hash } = await send("Withdraw", "withdraw_dispute", [id]);
+  $("lookDispute").value = id;
+  say("", "good", successHtml("Dispute withdrawn.", hash));
+  openDispute();
+});
+
+$("btnExpire").onclick = (e) => guarded(e.currentTarget, async () => {
+  const id = intOf("mDispute", "dispute id");
+  const { hash } = await send("Expire window", "expire_response_window", [id]);
+  $("xDispute").value = id; $("lookDispute").value = id;
+  say("", "good", successHtml("Response window expired. The case is ready for ruling.", hash));
+  openDispute();
+});
+
+$("btnAppeal").onclick = (e) => guarded(e.currentTarget, async () => {
+  const id = intOf("mDispute", "dispute id");
+  const { hash } = await send("Appeal", "appeal_dispute", [id, textOf("mReason", "Appeal reason")]);
+  $("xDispute").value = id; $("lookDispute").value = id;
+  say("", "good", successHtml("Appeal filed. Request the ruling again for the final decision.", hash));
   openDispute();
 });
 
