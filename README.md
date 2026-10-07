@@ -1,121 +1,83 @@
 # Agent Dispute Court
 
-A reusable on-chain arbitration contract for [GenLayer](https://genlayer.com). Two parties record an agreement, either side can file a dispute, and GenLayer validators read both statements plus any linked evidence and record a ruling through Optimistic Democracy consensus.
+A reusable on-chain arbitration primitive for [GenLayer](https://www.genlayer.com/). Two parties record an agreement, either side can file a dispute with a claim and evidence links, the other side responds, and GenLayer validators independently fetch the evidence and reach consensus on a verdict.
 
-One deployment serves any number of agreements and disputes. There is no need to redeploy per case.
+One deployed contract serves unlimited agreements and disputes. Verdicts use a fixed vocabulary so downstream contracts (for example an escrow layer reading `get_winner()`) can act on them programmatically.
 
-- **Contract (GenLayer Studio):** [`0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6`](https://explorer-studio.genlayer.com/address/0x1D450d694E6eD8B20366fd4dF334A7dDc1b76Ab6)
-- **Frontend:** [`docs/index.html`](docs/index.html), a single static file that talks to the deployed contract
-- **Live demo:** https://isnoop4.github.io/Agent-dispute-court/
+## Deployed contract
 
-## How it works
+GenLayer Studio:
+[`0xf23a7B406C7d3d6E3Ed04988F86B83bb583158a4`](https://explorer-studio.genlayer.com/address/0xf23a7B406C7d3d6E3Ed04988F86B83bb583158a4)
 
-1. **Create an agreement.** Party A calls `create_agreement(party_b, terms)` and receives an `agreement_id`.
-2. **File a dispute.** Either party calls `file_dispute(agreement_id, claim, evidence_url)` and receives a `dispute_id`. The evidence link is optional.
-3. **Respond.** The other party calls `submit_response(dispute_id, response, evidence_url)`.
-4. **Rule.** Either party calls `resolve_dispute(dispute_id)`. The leader fetches the evidence URLs and asks an LLM for a verdict. Validators repeat the process independently and must reach the same verdict for it to be accepted.
+## Verdicts
 
-Each dispute moves through three states:
+`CLAIMANT_FAVORED`, `RESPONDENT_FAVORED`, `SPLIT`, `INSUFFICIENT_EVIDENCE`
+
+## Dispute lifecycle
 
 ```
-AWAITING_RESPONSE  ->  READY_FOR_RULING  ->  RESOLVED
-   (file_dispute)      (submit_response)    (resolve_dispute)
+FILED ──> AWAITING_RESPONSE ──respond──────────────> READY_FOR_RULING ──resolve──> RESOLVED ──appeal──> READY_FOR_RULING ──resolve──> FINAL
+               │                                            ▲
+               ├──withdraw (claimant)──> WITHDRAWN          │
+               └──window expired (claimant)─────────────────┘
 ```
 
-### Verdicts
+| Step | Method | Who |
+| --- | --- | --- |
+| Create agreement | `create_agreement(party_b, terms, criteria, response_window_seconds)` | Party A |
+| File dispute | `file_dispute(agreement_id, claim, evidence_urls)` | Either party |
+| Respond | `submit_response(dispute_id, response, evidence_urls)` | Respondent |
+| Withdraw | `withdraw_dispute(dispute_id)` | Claimant, before a response |
+| Expire window | `expire_response_window(dispute_id)` | Claimant, after the window |
+| Rule | `resolve_dispute(dispute_id)` | Either party |
+| Appeal (once) | `appeal_dispute(dispute_id, reason)` | Either party |
 
-| Verdict | Meaning |
-|---|---|
-| `CLAIMANT_FAVORED` | Terms and evidence support the party who filed |
-| `RESPONDENT_FAVORED` | Terms and evidence support the responding party |
-| `SPLIT` | Both sides share responsibility |
-| `INSUFFICIENT_EVIDENCE` | Not enough information to rule fairly |
+Safeguards:
 
-The stored verdict is JSON: `{"verdict": "...", "confidence": "HIGH|MEDIUM|LOW", "reason": "..."}`.
+- **No stuck disputes.** The agreement sets a response window (1 hour to 30 days, default 7 days). If the respondent stays silent, the claimant can move the case to ruling. Silence alone is not treated as proof; the arbiter is told so explicitly.
+- **Withdrawal.** The claimant can withdraw a dispute that has not been answered.
+- **One appeal.** A resolved dispute can be appealed once with a stated reason. The second ruling is `FINAL`, and the previous ruling is shown to the arbiter.
+- **Audit log.** Every state change is appended to an on-chain event log returned by `get_dispute`.
 
-## Contract interface
+## Trust model
 
-### Write methods
+Also available on-chain through `get_trust_model()`.
 
-| Method | Who can call | Notes |
-|---|---|---|
-| `create_agreement(party_b: str, terms: str) -> int` | Anyone (becomes party A) | `party_b` must differ from the caller, terms must not be empty |
-| `file_dispute(agreement_id: int, claim: str, evidence_url: str) -> int` | Party A or B | The caller becomes the claimant |
-| `submit_response(dispute_id: int, response: str, evidence_url: str)` | The respondent only | Dispute must be `AWAITING_RESPONSE` |
-| `resolve_dispute(dispute_id: int) -> str` | Party A or B | Dispute must be `READY_FOR_RULING` |
+- **Who decides:** the verdict comes from validator consensus on an LLM ruling, not from a single judge or the contract owner. Each validator re-runs the ruling independently and must agree on the verdict label.
+- **What the arbiter may use:** only the agreement terms, the optional agreement-specific `criteria`, both statements, and the fetched evidence pages. No outside knowledge.
+- **What is untrusted:** all statements and evidence text are treated as data. Instructions embedded in them (prompt injection) are ignored.
+- **Agreement-specific rules:** parties can write `criteria` when creating the agreement (for example "delivery counts as late after 48 hours"), so rulings are not based on a generic standard.
+- **Confidence gate:** a `LOW` confidence ruling never picks a winner. It is downgraded to `INSUFFICIENT_EVIDENCE`, and the response records that it was downgraded.
+- **Access control:** only parties to the agreement can file, rule, or appeal. The claimant alone can withdraw or expire the window; only the respondent can answer.
 
-### View methods
+## Evidence handling
 
-| Method | Returns |
-|---|---|
-| `get_counts()` | `{agreements, disputes}` |
-| `get_agreement(agreement_id)` | `{party_a, party_b, terms, dispute_count}` |
-| `get_dispute(dispute_id)` | Full case file: parties, claim, response, evidence links, status, verdict |
-| `get_status(dispute_id)` | Current state string |
-| `get_verdict(dispute_id)` | Verdict JSON string |
-| `get_winner(dispute_id)` | Address of the winning party, or `SPLIT` / `INSUFFICIENT_EVIDENCE` / `PENDING` |
+- Up to 3 `https` URLs per side, passed as a space or comma separated string.
+- Each page is fetched by the validators at ruling time and truncated to 4000 characters.
+- If a page cannot be read it is marked `UNAVAILABLE`, is not counted for either side, and the ruling still completes.
+- The verdict stores a report for every evidence URL (`OK` or `UNAVAILABLE`) with a short content digest, so a ruling can be audited later.
 
-## Design notes
+## Known limitations
 
-- **Registry pattern.** State is held in `TreeMap`s keyed by agreement and dispute ids, so one contract handles many cases.
-- **State changes only after consensus.** Nothing is written inside `leader_fn` or `validator_fn`. The verdict and status are stored after `run_nondet_unsafe` returns.
-- **Evidence is fetched on-chain.** Validators fetch the linked URLs themselves with `gl.nondet.web.render`, rather than trusting text pasted by a party.
-- **Prompt-injection hardening.** Terms, statements, and fetched evidence are wrapped in tags and the prompt tells the model to treat them as data, not instructions.
-- **Verdict-level equivalence.** Validators agree when their verdict label matches. The free-text reason may differ between validators.
-- **Ruling access.** Only the two parties of an agreement can request a ruling, which prevents outsiders from spamming `resolve_dispute`.
+- Web evidence can change after it is submitted. The stored digest makes a ruling auditable but does not pin the content. Parties who need permanence should link to archived or content-addressed copies.
+- The response window relies on the transaction timestamp exposed by the runtime. If it is unavailable, `expire_response_window` fails with a clear error instead of guessing.
+- Rulings are LLM judgments reached by consensus. They are not legal judgments.
+- The contract records verdicts only. It does not hold or move funds; an escrow contract is expected to read `get_winner()`.
 
-## Limitations
+## Read methods
 
-- The contract records a ruling but does not hold or move funds. Enforcement (escrow, payouts) would be a separate layer that reads `get_winner`.
-- Evidence is read at ruling time. If a linked page changes or goes offline between filing and ruling, the result can differ.
-- Rulings come from LLM judgment and are not legal advice.
-- Validators compare verdict labels exactly, so ambiguous cases may need extra validator rounds before consensus.
+`get_agreement`, `get_dispute`, `get_status`, `get_verdict`, `get_winner`, `get_counts`, `get_trust_model`
 
-## Run the frontend
+## Quick test in GenLayer Studio
 
-The frontend is one static file with no build step. It loads [`genlayer-js`](https://github.com/genlayerlabs/genlayer-js) from `esm.sh` and connects to GenLayer Studio.
+1. Deploy `AgentDisputeCourtV5.py`.
+2. `create_agreement`: party B address, terms, criteria (can be empty), window `3600`.
+3. `file_dispute`: agreement `0`, a claim, and one `https` evidence URL.
+4. From party B's account, `submit_response`; or from party A, `withdraw_dispute`.
+5. `resolve_dispute` with dispute `0`, then `get_dispute` to see the verdict, evidence report and log.
+6. `appeal_dispute` once, then `resolve_dispute` again for the `FINAL` ruling.
 
-```bash
-# any static server works, for example:
-cd docs && python3 -m http.server 8000
-# then open http://localhost:8000
-```
+## Files
 
-On first load it creates a local account and stores its key in the browser's `localStorage`. Use it only for testing on Studio. You can also connect a browser wallet.
-
-To test a full case you need two addresses: act as party A, copy party B's address into the agreement form, then use **Switch to a new local account** (or the wallet) to act as party B for the response step.
-
-> Do not use the local account for anything of value. Its private key sits in the browser.
-
-## Deploy to GitHub Pages
-
-1. Keep the frontend at `docs/index.html`.
-2. In the repo go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and the `/docs` folder, then save.
-4. After a minute the site is live at https://isnoop4.github.io/Agent-dispute-court/.
-
-## Test the contract
-
-In GenLayer Studio, with two accounts:
-
-1. `create_agreement` as A with B's address and some terms.
-2. `file_dispute` as A with `agreement_id = 0`.
-3. `submit_response` as B with `dispute_id = 0`.
-4. `resolve_dispute` with `dispute_id = 0`.
-5. Check `get_status`, `get_verdict`, `get_winner`, and `get_counts`.
-6. To confirm reusability, create a second agreement and dispute and check that dispute 0 is unchanged.
-
-## Repository layout
-
-```
-.
-├── contracts/
-│   └── AgentDisputeCourtV4.py   # the Intelligent Contract
-├── docs/
-│   └── index.html               # frontend (served by GitHub Pages)
-└── README.md
-```
-
-## License
-
-MIT
+- `contracts/AgentDisputeCourtV5.py`: the Intelligent Contract
+- `docs/index.html`: GitHub Pages frontend
