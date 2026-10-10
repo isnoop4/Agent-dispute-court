@@ -78,6 +78,13 @@
     border-bottom: 1px solid var(--rule);
     position: relative;
   }
+  header::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(600px 200px at 20% 0%,
+      color-mix(in srgb, var(--oxblood) 6%, transparent), transparent 70%);
+    pointer-events: none;
+  }
   header::after {
     content: "";
     position: absolute; left: 0; right: 0; bottom: -4px; height: 3px;
@@ -89,11 +96,13 @@
     letter-spacing: -0.025em;
     margin: 0 0 18px;
     color: var(--ink);
+    position: relative;
   }
   .lede {
     font: 400 1.22rem/1.55 var(--serif);
     max-width: 36em; margin: 0 0 22px;
     color: var(--ink-2);
+    position: relative;
   }
   .addr {
     display: inline-flex; align-items: center; gap: 8px;
@@ -107,6 +116,7 @@
     text-decoration: none;
     box-shadow: var(--shadow-sm);
     transition: color .18s ease, border-color .18s ease, transform .18s ease;
+    position: relative;
   }
   .addr:hover { color: var(--ink); border-color: var(--rule-strong); transform: translateY(-1px); }
   .addr::before {
@@ -396,7 +406,8 @@
     transition: box-shadow .22s ease, border-color .22s ease, transform .22s ease;
   }
   .step:hover {
-    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
     border-color: var(--rule-strong);
   }
   .step::before {
@@ -478,9 +489,71 @@
       to   { transform: rotate(-3deg) scale(1); opacity: 1; }
     }
   }
+
+  /* ---------- SPLASH ---------- */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    transition: opacity .5s ease, visibility .5s ease;
+  }
+  #splash.hide { opacity: 0; visibility: hidden; }
+  #splash .scales {
+    font-size: 4rem; line-height: 1;
+    animation: balance 2s ease-in-out infinite;
+  }
+  #splash .label {
+    margin-top: 16px;
+    font: 600 .7rem var(--sans);
+    letter-spacing: .35em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #splash .bar {
+    margin-top: 20px;
+    width: 120px; height: 2px;
+    background: var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  #splash .bar::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--ink);
+    transform-origin: left;
+    animation: loadbar 1.2s ease forwards;
+  }
+  @keyframes balance {
+    0%, 100% { transform: rotate(-4deg); }
+    50%      { transform: rotate(4deg); }
+  }
+  @keyframes loadbar {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
+  /* ---------- SCROLL REVEAL ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity .6s ease, transform .6s cubic-bezier(.2,.8,.3,1);
+    }
+    .reveal.in {
+      opacity: 1;
+      transform: none;
+    }
+  }
 </style>
 </head>
 <body>
+
+<div id="splash" aria-hidden="true">
+  <div class="scales">⚖️</div>
+  <div class="label">Agent Dispute Court</div>
+  <div class="bar"></div>
+</div>
 
 <header>
   <div class="wrap">
@@ -853,6 +926,8 @@ async function openDispute() {
       </div>`;
     box.hidden = false;
     $("status").className = "";
+    box.classList.add("reveal");
+    requestAnimationFrame(() => box.classList.add("in"));
   } catch (e) {
     say("Could not open dispute " + id + ". " + friendly(e), "error");
   }
@@ -877,6 +952,8 @@ async function openAgreement() {
       </dl>`;
     box.hidden = false;
     $("status").className = "";
+    box.classList.add("reveal");
+    requestAnimationFrame(() => box.classList.add("in"));
   } catch (e) {
     say("Could not open agreement " + id + ". " + friendly(e), "error");
   }
@@ -988,6 +1065,32 @@ $("btnCopy").onclick = async () => {
   try { await navigator.clipboard.writeText(me); say("Address copied.", "good"); }
   catch (_) { say("Copy failed. Select the address and copy it manually.", "error"); }
 };
+
+/* ---------- splash + reveal ---------- */
+function bootUI() {
+  const hideSplash = () => {
+    const s = document.getElementById("splash");
+    if (s) s.classList.add("hide");
+  };
+  if (document.readyState === "complete") setTimeout(hideSplash, 400);
+  else window.addEventListener("load", () => setTimeout(hideSplash, 400));
+  setTimeout(hideSplash, 2500);
+
+  if ("IntersectionObserver" in window) {
+    const targets = document.querySelectorAll("section, .step");
+    targets.forEach((el) => el.classList.add("reveal"));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
+    targets.forEach((el) => io.observe(el));
+  }
+}
+bootUI();
 
 /* ---------- start ---------- */
 try {
